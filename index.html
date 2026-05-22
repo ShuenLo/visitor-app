@@ -90,7 +90,11 @@
 
     <div class="flex flex-col md:flex-row gap-4 mb-6">
 
+      
+      
+
      
+
       <input
         id="search"
         type="text"
@@ -162,7 +166,14 @@ async function startCamera() {
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     message.innerHTML = 'Camera is not supported in this browser.';
-    return;
+    return false;
+  }
+
+  // Android Chrome and mobile browsers often block camera access
+  // for local HTML files opened with file://
+  if (location.protocol === 'file:') {
+    message.innerHTML = 'Camera disabled because this app is opened as a local HTML file. Upload to HTTPS hosting to enable camera.';
+    return false;
   }
 
   try {
@@ -185,18 +196,22 @@ async function startCamera() {
     cameraReady = true;
     message.innerHTML = 'Camera active.';
 
+    return true;
+
   } catch (error) {
-    console.error(error);
+    console.error('Camera Error:', error);
 
     cameraReady = false;
 
-    if (error.name === 'NotAllowedError') {
-      message.innerHTML = 'Camera permission denied. Allow camera access in Chrome/Safari settings.';
-    } else if (!window.isSecureContext) {
-      message.innerHTML = 'Camera requires HTTPS or localhost. Raw HTML files may block camera access.';
+    if (error && error.name === 'NotAllowedError') {
+      message.innerHTML = 'Camera permission denied by browser. Android Chrome blocks camera access for local HTML files.';
+    } else if (error && error.name === 'NotFoundError') {
+      message.innerHTML = 'No camera device detected.';
     } else {
       message.innerHTML = 'Unable to access camera.';
     }
+
+    return false;
   }
 }
 
@@ -252,8 +267,7 @@ function checkInVisitor() {
   visitors.unshift(visitor);
 
   saveVisitors();
-renderVisitors();
-stopCamera();
+  renderVisitors();
 
   document.getElementById('guestName').value = '';
   document.getElementById('companyName').value = '';
@@ -334,7 +348,15 @@ function renderVisitors() {
   const search = document.getElementById('search').value.toLowerCase();
   const sortField = document.getElementById('sortField').value;
 
-  let filtered = visitors.filter(visitor => {
+  const archivedVisitors =
+  JSON.parse(localStorage.getItem('archivedVisitors')) || [];
+
+const allVisitors = [
+  ...visitors,
+  ...archivedVisitors
+];
+
+let filtered = allVisitors.filter(visitor => {
     return Object.values(visitor).join(' ').toLowerCase().includes(search);
   });
 
@@ -381,7 +403,6 @@ function renderVisitors() {
   document.getElementById('checkedInVisitors').innerText = visitors.filter(v => v.status === 'Checked In').length;
   document.getElementById('checkedOutVisitors').innerText = visitors.filter(v => v.status === 'Checked Out').length;
 }
-
 function archiveDailyVisitors() {
   const today = getToday();
 
@@ -458,3 +479,8 @@ archiveDailyVisitors();
 
 // Render visitor list
 renderVisitors();
+renderVisitors();
+</script>
+
+</body>
+</html>
