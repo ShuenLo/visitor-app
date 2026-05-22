@@ -90,14 +90,7 @@
 
     <div class="flex flex-col md:flex-row gap-4 mb-6">
 
-      <button onclick="adminAccess('export')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold">
-        Export Visitor Log
-      </button>
-
-      <button onclick="adminAccess('clear')" class="bg-red-700 hover:bg-red-800 text-white px-6 py-3 rounded-xl font-bold">
-        Clear Database
-      </button>
-
+     
       <input
         id="search"
         type="text"
@@ -259,7 +252,8 @@ function checkInVisitor() {
   visitors.unshift(visitor);
 
   saveVisitors();
-  renderVisitors();
+renderVisitors();
+stopCamera();
 
   document.getElementById('guestName').value = '';
   document.getElementById('companyName').value = '';
@@ -388,8 +382,79 @@ function renderVisitors() {
   document.getElementById('checkedOutVisitors').innerText = visitors.filter(v => v.status === 'Checked Out').length;
 }
 
-renderVisitors();
-</script>
+function archiveDailyVisitors() {
+  const today = getToday();
 
-</body>
-</html>
+  const lastArchiveDate =
+    localStorage.getItem('lastArchiveDate');
+
+  // Prevent multiple archives in same day
+  if (lastArchiveDate === today) {
+    return;
+  }
+
+  // Archive checked-out visitors
+  const completedVisitors = visitors.filter(
+    visitor => visitor.status === 'Checked Out'
+  );
+
+  // Keep visitors still checked in
+  const activeVisitors = visitors.filter(
+    visitor => visitor.status === 'Checked In'
+  );
+
+  // Existing archived records
+  let archivedVisitors =
+    JSON.parse(localStorage.getItem('archivedVisitors')) || [];
+
+  // Add completed visitors to archive
+  archivedVisitors = [
+    ...completedVisitors,
+    ...archivedVisitors
+  ];
+
+  // Save archived records
+  localStorage.setItem(
+    'archivedVisitors',
+    JSON.stringify(archivedVisitors)
+  );
+
+  // Keep only active visitors
+  visitors = activeVisitors;
+
+  // Save active visitors
+  saveVisitors();
+
+  // Save today's archive date
+  localStorage.setItem(
+    'lastArchiveDate',
+    today
+  );
+}
+
+function stopCamera() {
+  const video = document.getElementById('camera');
+
+  if (currentCameraStream) {
+    currentCameraStream
+      .getTracks()
+      .forEach(track => track.stop());
+
+    currentCameraStream = null;
+  }
+
+  video.srcObject = null;
+
+  cameraReady = false;
+
+  const message =
+    document.getElementById('cameraMessage');
+
+  message.innerHTML = 'Camera stopped.';
+}
+
+// Run daily archive
+archiveDailyVisitors();
+
+// Render visitor list
+renderVisitors();
