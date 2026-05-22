@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calson Management Visitor Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+
+<div class="max-w-7xl mx-auto">
+
+  <div class="bg-white rounded-3xl shadow-xl p-8 mb-8">
+    <h1 class="text-4xl font-bold text-center mb-2">
+      Calson Management Visitor Management
+    </h1>
+
+    <p class="text-center text-gray-500 mb-8">
+      Guest Check-In / Check-Out System
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div>
+        <label class="block mb-2 font-semibold">Guest Full Name *</label>
+        <input id="guestName" type="text" class="w-full border rounded-xl p-3" placeholder="Enter full name">
+      </div>
+
+      <div>
+        <label class="block mb-2 font-semibold">Company Name</label>
+        <input id="companyName" type="text" class="w-full border rounded-xl p-3" placeholder="Enter company name">
+      </div>
+
+      <div>
+        <label class="block mb-2 font-semibold">Who They Are Visiting *</label>
+        <input id="visiting" type="text" class="w-full border rounded-xl p-3" placeholder="Resident or staff name">
+      </div>
+
+      <div>
+        <label class="block mb-2 font-semibold">Reason For Visit *</label>
+        <select id="reason" onchange="handleReasonSelection()" class="w-full border rounded-xl p-3">
+          <option value="">Select reason</option>
+          <option>Family Visit</option>
+          <option>Vendor</option>
+          <option>Delivery</option>
+          <option>Medical</option>
+          <option>Maintenance</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block mb-2 font-semibold text-center">Guest Camera Photo</label>
+
+        <video id="camera" autoplay playsinline muted class="w-1/2 h-40 object-cover rounded-2xl border bg-black mx-auto"></video>
+        <canvas id="photoCanvas" class="hidden"></canvas>
+
+        <div id="cameraMessage" class="text-center text-sm text-gray-500 mt-3">
+          Camera will start after selecting Reason For Visit.
+        </div>
+      </div>
+
+    </div>
+
+    <button onclick="checkInVisitor()" class="w-full mt-8 bg-green-600 hover:bg-green-700 text-white text-2xl font-bold py-5 rounded-2xl shadow-lg">
+      Check-In
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+    <div class="bg-white rounded-3xl shadow-lg p-6">
+      <h2 class="text-2xl font-bold mb-4">Today's Visitors</h2>
+      <div id="todayVisitors" class="text-5xl font-bold text-blue-600">0</div>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-lg p-6">
+      <h2 class="text-2xl font-bold mb-4">Currently Checked In</h2>
+      <div id="checkedInVisitors" class="text-5xl font-bold text-green-600">0</div>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-lg p-6">
+      <h2 class="text-2xl font-bold mb-4">Checked Out</h2>
+      <div id="checkedOutVisitors" class="text-5xl font-bold text-red-600">0</div>
+    </div>
+
+  </div>
+
+  <div class="bg-white rounded-3xl shadow-xl p-6">
+
+    <div class="flex flex-col md:flex-row gap-4 mb-6">
+
+      <button onclick="adminAccess('export')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold">
+        Export Visitor Log
+      </button>
+
+      <button onclick="adminAccess('clear')" class="bg-red-700 hover:bg-red-800 text-white px-6 py-3 rounded-xl font-bold">
+        Clear Database
+      </button>
+
+      <input
+        id="search"
+        type="text"
+        placeholder="Search visitors..."
+        onkeyup="renderVisitors()"
+        class="flex-1 border rounded-xl p-3"
+      >
+
+      <select id="sortField" onchange="renderVisitors()" class="border rounded-xl p-3">
+        <option value="id">Sort by ID</option>
+        <option value="guestName">Sort by Guest Name</option>
+        <option value="companyName">Sort by Company</option>
+        <option value="visiting">Sort by Visiting</option>
+        <option value="reason">Sort by Reason</option>
+        <option value="status">Sort by Status</option>
+      </select>
+
+    </div>
+
+    <h2 class="text-2xl font-bold mb-2">Historical Visitor Log</h2>
+
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse">
+        <thead>
+          <tr class="bg-gray-200 text-left">
+            <th class="p-4">ID#</th>
+            <th class="p-4">Photo</th>
+            <th class="p-4">Guest Name</th>
+            <th class="p-4">Company</th>
+            <th class="p-4">Visiting</th>
+            <th class="p-4">Reason</th>
+            <th class="p-4">Check-In</th>
+            <th class="p-4">Check-Out</th>
+            <th class="p-4">Status</th>
+            <th class="p-4">Action</th>
+          </tr>
+        </thead>
+        <tbody id="visitorTable"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let visitors = JSON.parse(localStorage.getItem('visitors')) || [];
+const ADMIN_PASSWORD = 'admin123';
+let currentCameraStream = null;
+let cameraReady = false;
+
+function getToday() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function saveVisitors() {
+  localStorage.setItem('visitors', JSON.stringify(visitors));
+}
+
+function generateDailyId() {
+  const today = getToday();
+  const todaysVisitors = visitors.filter(v => v.date === today);
+  return todaysVisitors.length + 1;
+}
+
+async function startCamera() {
+  const video = document.getElementById('camera');
+  const message = document.getElementById('cameraMessage');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    message.innerHTML = 'Camera is not supported in this browser.';
+    return;
+  }
+
+  try {
+    if (currentCameraStream) {
+      currentCameraStream.getTracks().forEach(track => track.stop());
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user'
+      },
+      audio: false
+    });
+
+    currentCameraStream = stream;
+    video.srcObject = stream;
+
+    await video.play();
+
+    cameraReady = true;
+    message.innerHTML = 'Camera active.';
+
+  } catch (error) {
+    console.error(error);
+
+    cameraReady = false;
+
+    if (error.name === 'NotAllowedError') {
+      message.innerHTML = 'Camera permission denied. Allow camera access in Chrome/Safari settings.';
+    } else if (!window.isSecureContext) {
+      message.innerHTML = 'Camera requires HTTPS or localhost. Raw HTML files may block camera access.';
+    } else {
+      message.innerHTML = 'Unable to access camera.';
+    }
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('camera');
+  const canvas = document.getElementById('photoCanvas');
+
+  if (!cameraReady || !video.videoWidth) {
+    return '';
+  }
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL('image/png');
+}
+
+function handleReasonSelection() {
+  const reason = document.getElementById('reason').value;
+
+  if (reason) {
+    startCamera();
+  }
+}
+
+function checkInVisitor() {
+  const guestName = document.getElementById('guestName').value.trim();
+  const companyName = document.getElementById('companyName').value.trim();
+  const visiting = document.getElementById('visiting').value.trim();
+  const reason = document.getElementById('reason').value;
+
+  if (!guestName || !visiting || !reason) {
+    alert('Please complete all required fields.');
+    return;
+  }
+
+  const visitor = {
+    id: generateDailyId(),
+    date: getToday(),
+    guestName,
+    companyName,
+    visiting,
+    reason,
+    checkIn: new Date().toLocaleString(),
+    checkOut: '',
+    status: 'Checked In',
+    photo: capturePhoto()
+  };
+
+  visitors.unshift(visitor);
+
+  saveVisitors();
+  renderVisitors();
+
+  document.getElementById('guestName').value = '';
+  document.getElementById('companyName').value = '';
+  document.getElementById('visiting').value = '';
+  document.getElementById('reason').value = '';
+}
+
+function checkOutVisitor(index) {
+  visitors[index].checkOut = new Date().toLocaleString();
+  visitors[index].status = 'Checked Out';
+
+  saveVisitors();
+  renderVisitors();
+}
+
+function adminAccess(action) {
+  const password = prompt('Administrator password required:');
+
+  if (password !== ADMIN_PASSWORD) {
+    alert('Incorrect administrator password.');
+    return;
+  }
+
+  if (action === 'export') {
+    exportVisitors();
+  }
+
+  if (action === 'clear') {
+    clearVisitorDatabase();
+  }
+}
+
+function exportVisitors() {
+  if (visitors.length === 0) {
+    alert('No visitor records to export.');
+    return;
+  }
+
+  const headers = ['ID#','Date','Guest Name','Company Name','Visiting','Reason','Check-In','Check-Out','Status'];
+
+  const rows = visitors.map(v => [
+    v.id,
+    v.date,
+    v.guestName,
+    v.companyName,
+    v.visiting,
+    v.reason,
+    v.checkIn,
+    v.checkOut,
+    v.status
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(field => `"${field || ''}"`).join(','))
+    .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+
+  link.href = URL.createObjectURL(blob);
+  link.download = `visitor-log-${getToday()}.csv`;
+  link.click();
+}
+
+function clearVisitorDatabase() {
+  const confirmed = confirm('WARNING: This will permanently delete ALL visitor records. Continue?');
+
+  if (!confirmed) return;
+
+  localStorage.removeItem('visitors');
+  visitors = [];
+
+  renderVisitors();
+}
+
+function renderVisitors() {
+  const table = document.getElementById('visitorTable');
+  const search = document.getElementById('search').value.toLowerCase();
+  const sortField = document.getElementById('sortField').value;
+
+  let filtered = visitors.filter(visitor => {
+    return Object.values(visitor).join(' ').toLowerCase().includes(search);
+  });
+
+  filtered.sort((a, b) => {
+    if (a[sortField] < b[sortField]) return -1;
+    if (a[sortField] > b[sortField]) return 1;
+    return 0;
+  });
+
+  table.innerHTML = '';
+
+  filtered.forEach(visitor => {
+    const originalIndex = visitors.indexOf(visitor);
+
+    table.innerHTML += `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="p-4 font-semibold">#${visitor.id}</td>
+        <td class="p-4">
+          ${visitor.photo
+            ? `<img src="${visitor.photo}" class="w-16 h-16 object-cover rounded-xl border">`
+            : '<div class="w-16 h-16 bg-gray-200 rounded-xl flex items-center justify-center text-gray-400">No Photo</div>'}
+        </td>
+        <td class="p-4">${visitor.guestName}</td>
+        <td class="p-4">${visitor.companyName}</td>
+        <td class="p-4">${visitor.visiting}</td>
+        <td class="p-4">${visitor.reason}</td>
+        <td class="p-4">${visitor.checkIn}</td>
+        <td class="p-4">${visitor.checkOut || '-'}</td>
+        <td class="p-4">
+          <span class="px-4 py-2 rounded-full text-white text-sm font-bold ${visitor.status === 'Checked In' ? 'bg-green-600' : 'bg-red-600'}">
+            ${visitor.status}
+          </span>
+        </td>
+        <td class="p-4">
+          ${visitor.status === 'Checked In'
+            ? `<button onclick="checkOutVisitor(${originalIndex})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl">Check-Out</button>`
+            : '<span class="text-gray-400">Completed</span>'}
+        </td>
+      </tr>
+    `;
+  });
+
+  document.getElementById('todayVisitors').innerText = visitors.filter(v => v.date === getToday()).length;
+  document.getElementById('checkedInVisitors').innerText = visitors.filter(v => v.status === 'Checked In').length;
+  document.getElementById('checkedOutVisitors').innerText = visitors.filter(v => v.status === 'Checked Out').length;
+}
+
+renderVisitors();
+</script>
+
+</body>
+</html>
