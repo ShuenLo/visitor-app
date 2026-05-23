@@ -387,13 +387,16 @@ let filtered = allVisitors.filter(visitor => {
         <td class="p-4">${visitor.checkIn}</td>
         <td class="p-4">${visitor.checkOut || '-'}</td>
         <td class="p-4">
-          <span class="px-4 py-2 rounded-full text-white text-sm font-bold ${visitor.status === 'Checked In' ? 'bg-green-600' : 'bg-red-600'}">
+          <span class="px-4 py-2 rounded-full text-white text-sm font-bold whitespace-nowrap inline-block
+  ${visitor.status === 'Checked In'
+    ? 'bg-green-600'
+    : 'bg-red-600'}">
             ${visitor.status}
           </span>
         </td>
-        <td class="p-4">
+        <td class="p-4 min-w-[140px] whitespace-nowrap">
           ${visitor.status === 'Checked In'
-            ? `<button onclick="checkOutVisitor(${originalIndex})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl">Check-Out</button>`
+            ? `<button onclick="checkOutVisitor(${originalIndex})" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl whitespace-nowrap inline-block">Check-Out</button>`
             : '<span class="text-gray-400">Completed</span>'}
         </td>
       </tr>
