@@ -120,7 +120,6 @@
       <table class="w-full border-collapse">
         <thead>
           <tr class="bg-gray-200 text-left">
-            <th class="p-4">ID#</th>
             <th class="p-4">Photo</th>
             <th class="p-4">Guest Name</th>
             <th class="p-4">Company</th>
@@ -374,7 +373,6 @@ let filtered = allVisitors.filter(visitor => {
 
     table.innerHTML += `
       <tr class="border-b hover:bg-gray-50">
-        <td class="p-4 font-semibold">#${visitor.id}</td>
         <td class="p-4">
           ${visitor.photo
             ? `<img src="${visitor.photo}" class="w-16 h-16 object-cover rounded-xl border">`
